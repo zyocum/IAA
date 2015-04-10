@@ -58,10 +58,12 @@ class Document(object):
         return (tag for tag in self.tags if 'from' in tag.attrib)
     
     def consuming_tags(self):
-        return (tag for tag in self.extent_tags() if tag.attrib['start'] > -1)
+        tags = self.extent_tags()
+        return (tag for tag in tags if int(tag.attrib['start']) > -1)
     
     def non_consuming_tags(self):
-        return (tag for tag in self.extent_tags() if tag.attrib['start'] <= -1)
+        tags = self.extent_tags()
+        return (tag for tag in tags if int(tag.attrib['start']) <= -1)
     
     def validate(self):
         is_valid = True
