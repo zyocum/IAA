@@ -69,7 +69,7 @@ class Document(object):
         is_valid = True
         if not self.tags:
             is_valid = False
-            message = "No tag elements found\n\tFile : '{}'"
+            warning = "No tag elements found\n\tFile : '{}'"
             warn(warning, RuntimeWarning)
         for tag in self.consuming_tags():
             start, end = map(int, (tag.attrib['start'], tag.attrib['end']))
