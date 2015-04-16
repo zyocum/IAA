@@ -3,9 +3,8 @@
 __author__ = "Zachary Yocum"
 __email__  = "zyocum@brandeis.edu"
 
-import os, numpy
+import os, numpy, fleiss
 from corpus import Corpus, Document
-from fleiss import fleiss
 from sys import argv, exit
 
 def get_extent(document_id, tag):
@@ -78,8 +77,7 @@ def main():
             row, column = subjects[subject], labels[label]
             data[row,column] += 1
     
-    kappa, p = fleiss(data)
-    print "Fleiss's kappa : {}".format(kappa)
+    print "Fleiss's kappa : {}".format(fleiss.kappa(data))
 
 if __name__ == '__main__':
     main()

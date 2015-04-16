@@ -1,111 +1,82 @@
-"""
-fleiss.py by Marco Lui, Dec 2010
+# -*- mode: Python; coding: utf-8 -*-
+"""Functions for computing Fleiss's kappa (𝜅), a measure of inter-annotator 
+agreement between several (more than 2) annotators."""
 
-Based on
-  http://en.wikipedia.org/wiki/Fleiss'_kappa
-and
-  Cardillo G. (2007) Fleisses kappa: compute the Fleiss'es kappa for multiple raters.
-  http://www.mathworks.com/matlabcentral/fileexchange/15426
-"""
-import numpy
-from scipy.special import erfc
+import numpy as np
 
-def fleiss_wikpedia(data):
-    if not len(data.shape) == 2:
-        raise ValueError, 'input must be 2-dimensional array'
-    if not issubclass(data.dtype.type, numpy.integer):
+def kappa(data):
+    """Computes Fleiss's 𝜅 coefficient given a matrix of subject ratings.
+    
+    The data must be an N x M matrix where N is the number of subjects and M is
+    the number of labels.
+    
+                  P̅ - P̅(e)
+    Fleiss's 𝜅 = ----------
+                  1 - P̅(e)
+    
+    Where...
+        P̅    = the percentage of observed agreement
+        P̅(e) = the percentage of expected agreement."""
+    if not issubclass(data.dtype.type, np.integer):
         raise TypeError, 'expected integer type'
-    if not numpy.isfinite(data).all():
-        raise ValueError, 'all data must be finite'
-  
-    raters = data.sum(axis=1)
-    if (raters - raters.max()).any():
-        raise ValueError, 'inconsistent number of raters'
-  
-    num_raters = raters[0]
-    num_subjects, num_category = data.shape
-    total_ratings = num_subjects * num_raters
-
-    pj = data.sum(axis=0) / float(total_ratings)
-    pi = ((data * data).sum(axis=1) - num_raters).astype(float) / (num_raters * (num_raters - 1))
-    pbar = pi.sum() / num_subjects
-    pebar = (pj * pj).sum()
-
-    kappa = (pbar - pebar) / (1 - pebar)
-    return kappa
-
-def fleiss(data):
-    if not len(data.shape) == 2:
+    if len(data.shape) != 2:
         raise ValueError, 'input must be 2-dimensional array'
-    if not issubclass(data.dtype.type, numpy.integer):
-        raise TypeError, 'expected integer type'
-    if not numpy.isfinite(data).all():
+    if not np.isfinite(data).all():
         raise ValueError, 'all data must be finite'
-  
-    raters = data.sum(axis=1)
-    if (raters - raters.max()).any():
-        raise ValueError, 'inconsistent number of raters'
-  
-    n, num_category = data.shape
-    # m=sum(x(1,:)); %raters
-    m = data[0].sum(axis=0)
-    
-    # a=n*m;
-    a = n * m
-    
-    # pj=(sum(x)./(a)); %overall proportion of ratings in category j
-    pj = data.sum(axis=0) / float(a)
-    
-    # b=pj.*(1-pj);
-    b = pj * (1-pj)
-    
-    # c=a*(m-1);
-    c = a * (m-1)
-    
-    # d=sum(b);
-    d = numpy.sum(b, axis=0)
-    
-    # kj=1-(sum((x.*(m-x)))./(c.*b)); %the value of kappa for the j-th category
-    kj = 1 - ((data * (m - data)).sum(axis=0) / (c*b))
-    
-    # sekj=realsqrt(2/c); %kj standar error
-    sekj = numpy.sqrt(2/c)
-    
-    # zkj=kj./sekj;
-    zkj = kj / sekj
-    
-    # pkj=(1-0.5*erfc(-abs(zkj)/realsqrt(2)))*2;
-    pkj = (1 - 0.5 * erfc(-numpy.abs(zkj) / numpy.sqrt(2))) * 2
-    
-    # k=sum(b.*kj)/d; %Fleiss'es (overall) kappa
-    k = (b * kj).sum(axis=0) / d
-    
-    # sek=realsqrt(2*(d^2-sum(b.*(1-2.*pj))))/sum(b.*realsqrt(c)); %kappa standard error
-    sek = numpy.sqrt(2 * (d * d - (b * (1 - 2 * pj)).sum(axis=0))) / (b * numpy.sqrt(c)).sum(axis=0)
-    
-    # ci=k+([-1 1].*(abs(0.5*erfc(-alpha/2/realsqrt(2)))*sek)); %k confidence interval
-    # omitted as we are not working out the ci
-    
-    # z=k/sek; %normalized kappa
-    z = k/sek
-    
-    # p=(1-0.5*erfc(-abs(z)/realsqrt(2)))*2;
-    p = (1 - 0.5 * erfc(-numpy.abs(z) / numpy.sqrt(2))) * 2
-    
-    return k, p
+    if (data < 0).any():
+        raise ValueError, 'all data must be non-negative'
+    if np.sum(data) <= 0:
+        raise ValueError, 'total data must sum to positive value'
+    if not len(set(sum(data.T))) == 1:
+        raise ValueError, 'all subjects must have the same number of ratings'
+    observation = observed(data)
+    expectation = expected(data)
+    perfection = 1.0
+    k = np.divide(
+        observation - expectation,
+        perfection - expectation
+    )
+    return k
 
-if __name__ == "__main__":
-    data = numpy.array([
-        [0,0,0,0,14],
-        [0,2,6,4,2],
-        [0,0,3,5,6],
-        [0,3,9,2,0],
-        [2,2,8,1,1],
-        [7,7,0,0,0],
-        [3,2,6,3,0],
-        [2,5,3,2,2],
-        [6,5,2,1,0],
-        [0,2,2,3,7],
-    ])
+def label_proportions(data):
+    """Computes the proportion of ratings, p(j), assigned to each label.
     
-    print fleiss(data)
+    I.e., for each label j, what percentage of all ratings, were
+    assigned to that label."""
+    label_proportions = np.divide(sum(data).astype(float), data.sum())
+    return label_proportions
+
+def subject_agreements(data):
+    """Computes the per-subject agreement, P(i), for each subject.
+    
+    I.e., compute how many inter-rater pairs are in agreement, relative to the
+    number of all possible pairs:
+    
+           𝛴(j=1 → k)[n(i,j)² - n]
+    P(i) = -----------------------
+                  n(n - 1)
+    
+    Where...
+        i      = a subject (i.e., row) index
+        j      = a label (i.e., column) index
+        k      = the number of labels
+        n(i,j) = how many raters assigned the j-th label to the i-th subject
+        n      = number of ratings per subject (i.e., the sum of one row)"""
+    subject_indices, label_indices = map(range, data.shape)
+    dot_products = np.array([np.dot(data[i], data[i]) for i in subject_indices])
+    sums = data.sum(axis=1).astype(float)
+    numerators = dot_products - sums
+    denominators = np.array([sums[i] * (sums[i] - 1) for i in subject_indices])
+    subject_agreements = np.divide(numerators, denominators)
+    return subject_agreements
+
+def observed(data):
+    """Computes the observed agreement, P̅."""
+    percent_agreement = np.mean(subject_agreements(data))
+    return percent_agreement
+
+def expected(data):
+    """Computes the expected agreement, P̅(e)."""
+    proportions = label_proportions(data)
+    percent_expected = np.dot(proportions, proportions)
+    return percent_expected
