@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ClickbaitML_0.2.2>
+<TEXT><![CDATA[
+Here Are 9 Facts About Something That Shouldn't Even Be An Argument, But For Some Odd Reason It Is
+]]></TEXT>
+<TAGS>
+<GLOBAL id="G0" spans="-1~-1" text="" is_clickbait="yes" factual_statement="nonfactual" curiosity_gap="yes" comment="" />
+<JUXTAPOSITION id="J0" spans="1~68" text="Here Are 9 Facts About Something That Shouldn't Even Be An Argument" degree="baseline" comment="" />
+<JUXTAPOSITION id="J1" spans="70~99" text="But For Some Odd Reason It Is" degree="escalation" comment="" />
+<FORWARD_REFERENCE id="F0" spans="24~33" text="Something" comment="" />
+<FORWARD_REFERENCE id="F1" spans="94~96" text="It" comment="" />
+<LISTICLE id="L0" spans="10~11,12~17" text="9 ... Facts" comment="" />
+</TAGS>
+</ClickbaitML_0.2.2>

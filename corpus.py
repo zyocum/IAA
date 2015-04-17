@@ -14,7 +14,7 @@ class Corpus(object):
         self.directory = directory
         self.pattern = pattern
         self.recursive = recursive
-        self.validate()
+        #self.validate()
     
     def __repr__(self):
         return '<{name} with {n} documents>'.format(
@@ -52,15 +52,20 @@ class Document(object):
         return self.text.encode('utf-8')
     
     def extent_tags(self):
-        return (tag for tag in self.tags if 'start' in tag.attrib)
+        return (tag for tag in self.tags if 'spans' in tag.attrib)
     
     def link_tags(self):
         return (tag for tag in self.tags if 'from' in tag.attrib)
     
     def consuming_tags(self):
         tags = self.extent_tags()
-        return (tag for tag in tags if int(tag.attrib['start']) > -1)
+        return (tag for tag in tags if self._is_consuming(tag))
     
+    def _is_consuming(self, tag):
+        spans = tag.attrib['spans'].split(',')
+        return any(start > -1 for start in [int(span.split('~')[0]) 
+                                            for span in spans])
+
     def non_consuming_tags(self):
         tags = self.extent_tags()
         return (tag for tag in tags if int(tag.attrib['start']) <= -1)

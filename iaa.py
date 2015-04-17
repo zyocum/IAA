@@ -9,12 +9,12 @@ from sys import argv, exit
 
 def get_extent(document_id, tag):
     """Returns a string formatted extent key from a document ID and a tag."""
-    start, end = get_span(tag)
-    return '{}[{}:{}]'.format(document_id, start, end)
+    spans = get_span(tag)
+    return '{}[{}]'.format(document_id, get_span(tag))
 
 def get_span(tag):
     """Returns a (start, end) extent for the given extent tag."""
-    return tag.attrib['start'], tag.attrib['end']
+    return tag.attrib['spans']
 
 def index(items):
     """Create an index/codebook that maps items to integers."""
@@ -22,7 +22,8 @@ def index(items):
 
 def parse_name(document):
     """Parse a document's file name."""
-    return os.path.basename(document.file).split('-')
+    return os.path.basename(document.file).split('_')
+
 
 def main():
     # Commandline argument parsing stuff
@@ -43,7 +44,7 @@ def main():
     
     # First pass over corpus to accumulate IDs/labels
     for document in corpus:
-        document_id, annotator_id, phase = parse_name(document)
+        document_id, annotator_id = parse_name(document)
         document_ids.add(document_id)
         annotator_ids.add(annotator_id)
         tag_types.update(document.extent_types)
@@ -63,7 +64,7 @@ def main():
     
     # Second pass over the corpus to populate extents dictionary
     for document in corpus:
-        document_id, annotator_id, phase = parse_name(document)
+        document_id, annotator_id = parse_name(document)
         for tag in document.consuming_tags():
             extent = get_extent(document_id, tag)
             if not extents[extent]:
