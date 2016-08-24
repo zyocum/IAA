@@ -1,7 +1,7 @@
 # IAA
 A few scripts for computing inter-annotator agreement for MAE/MAI XMLs.
 
-`cohen.py` : Methods for computing Cohen's kapp coefficient
+`cohen.py` : Methods for computing Cohen's kappa coefficient
 
 `corpus.py` : Module for working with collections of documents
 
