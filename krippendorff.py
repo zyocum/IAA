@@ -163,7 +163,8 @@ if __name__ == '__main__':
     
     DATA_TYPES = dict((dt().name().lower(), dt()) for dt in (Nominal, Numeric))
     parser = argparse.ArgumentParser(
-        description=__doc__
+        description="Compute Krippendorff's alpha (α), a measure of \
+        interannotator agreement between two or more annotators."
     )
     parser.add_argument(
         'filename',
