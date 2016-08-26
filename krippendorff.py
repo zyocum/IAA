@@ -63,8 +63,7 @@ class Numeric(DataType):
         """Return the metric difference between v1 and v2 in the range [0.0,1.0]
     
         The difference is normalized by the maximum value in the data set"""
-        maximum_value = np.max(filter(None, map(self.get, values)))
-        return np.divide(abs(v1 - v2), maximum_value)
+        return np.divide(abs(v1 - v2), np.max(values))
 
 class Nominal(DataType):
     """A nominal data type with a nominal difference function"""
