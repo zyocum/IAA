@@ -115,7 +115,7 @@ def delta(coincidence_matrix, inverse_codebook, difference):
             delta.append(difference(v1, v2, inverse_codebook.values()))
     return np.array(delta)
 
-def observation(coincidence_matrix, codebook, d):
+def observation(coincidence_matrix, d):
     """Compute the observed agreement D(o)"""
     o = []
     for i in range(len(coincidence_matrix)):
@@ -153,7 +153,7 @@ def krippendorff(data, data_type):
     inverse_codebook = dict(enumerate(values))
     cm = get_coincidence_matrix(data, codebook, data_type)
     d = delta(cm, inverse_codebook, data_type.difference)
-    observed = observation(cm, codebook, d)
+    observed = observation(cm, d)
     expected = expectation(cm, d)
     perfection = 1.0
     a = perfection - np.divide(observed, expected)
