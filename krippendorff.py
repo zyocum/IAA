@@ -94,17 +94,6 @@ def get_codebook(data, data_type):
     values = set(filter(None, map(data_type.get, data.flatten())))
     return dict((v,i) for (i,v) in enumerate(values))
 
-def numeric(value):
-    """Predicate to deterimine if a given value is a numeric type
-    and not 'nan'"""
-    numeric_types = (int, float, long, complex)
-    is_numeric = any(isinstance(value, t) for t in numeric_types)
-    return is_numeric and not math.isnan(value)
-
-def nominal(value):
-    """Predicate to determine if a given value can be treated as nominal"""
-    return numeric(value) or (isinstance(value, basestring) and value)
-
 def get_coincidence_matrix(data, codebook, data_type):
     """Given an N x M matrix D (data) with N subjects and M annotators/coders,
     produce an L x L coincidence matrix C where L is the number of labels/values
