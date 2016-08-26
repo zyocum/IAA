@@ -13,6 +13,7 @@ import numpy as np
 NUMBERS = (int, float, long, complex)
 
 class DataType():
+    """Base class for defining data types"""
     def __init__(self, t):
         self.type = t
     
@@ -26,7 +27,7 @@ class DataType():
         return self[arg]
     
     def load(self, datafile):
-        """Load data from a TSV
+        """Load data from TSV
         (rows = subjects; columns = annotators)"""
         with open(datafile) as f:
             reader = csv.reader(f, delimiter='\t')
@@ -43,6 +44,7 @@ class DataType():
             return data
     
 class Numeric(DataType):
+    """A numeric data type with a metric difference function"""
     def __init__(self):
         self.type = float
     
@@ -65,6 +67,7 @@ class Numeric(DataType):
         return np.divide(abs(v1 - v2), maximum_value)
 
 class Nominal(DataType):
+    """A nominal data type with a nominal difference function"""
     def __init__(self):
         self.type = basestring
     
