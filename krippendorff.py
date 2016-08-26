@@ -86,14 +86,6 @@ class Nominal(DataType):
         """Return 0.0 if v1 and v2 are the same value, 1.0 otherwise"""
         return float(v1 != v2)
 
-def get_codebook(data, data_type):
-    """Return a codebook that maps labels/values to indices
-    
-    The codebook can be used to look up the corresponding column or row
-    in a confusion matrix given a value/label"""
-    values = set(filter(None, map(data_type.get, data.flatten())))
-    return dict((v,i) for (i,v) in enumerate(values))
-
 def get_coincidence_matrix(data, codebook, data_type):
     """Given an N x M matrix D (data) with N subjects and M annotators/coders,
     produce an L x L coincidence matrix C where L is the number of labels/values
@@ -111,8 +103,11 @@ def get_coincidence_matrix(data, codebook, data_type):
     return matrix.astype(int)
 
 def delta(coincidence_matrix, inverse_codebook, difference):
-    """Compute a delta vector from a data matrix, a coincidence matrix, and a 
-    difference function"""
+    """Compute a delta vector from a coincidence matrix, an inverse codebook,
+    and a difference function
+    
+    The inverse codebook allows for looking up values from the row/column
+    indices of the coincidence matrix"""
     delta = []
     for i in range(len(coincidence_matrix)):
         for j in range(i+1, len(coincidence_matrix)):
@@ -153,11 +148,12 @@ def krippendorff(data, data_type):
         raise TypeError, 'expected a numpy array'
     if len(data.shape) != 2:
         raise ValueError, 'input must be 2-dimensional array'
-    cb = get_codebook(data, data_type)
-    icb = dict((i,v) for (v,i) in cb.iteritems())
-    cm = get_coincidence_matrix(data, cb, data_type)
-    d = delta(cm, icb, data_type.difference)
-    observed = observation(cm, cb, d)
+    values = set(filter(None, map(data_type.get, data.flatten())))
+    codebook = dict((v,i) for (i,v) in enumerate(values))
+    inverse_codebook = dict(enumerate(values))
+    cm = get_coincidence_matrix(data, codebook, data_type)
+    d = delta(cm, inverse_codebook, data_type.difference)
+    observed = observation(cm, codebook, d)
     expected = expectation(cm, d)
     perfection = 1.0
     a = perfection - np.divide(observed, expected)
