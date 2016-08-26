@@ -10,95 +10,86 @@ from itertools import permutations
 
 import numpy as np
 
-SENTIMENT_MAP = {
-    'positive' : 3,
-    'neutral' : 2,
-    'negative' : 1,
-    'pos' : 3,
-    'neu' : 2,
-    'neg' : 1
-}
+NUMBERS = (int, float, long, complex)
 
-def normalize(row, label_map=None):
-    """Coerce non-numeric values in a row to None, and the rest to floats"""
-    for value in row:
-        if label_map:
-            value = label_map.get(value)
+class DataType():
+    def __init__(self, t):
+        self.type = t
+    
+    def __getitem__(self, arg):
+        return self.type(arg)
+    
+    def name(self):
+        return self.__class__.__name__
+    
+    def get(self, arg):
+        return self[arg]
+    
+    def load(self, datafile):
+        """Load data from a TSV
+        (rows = subjects; columns = annotators)"""
+        with open(datafile) as f:
+            reader = csv.reader(f, delimiter='\t')
+            raw_data = []
+            for row in reader:
+                raw_data.append(map(self.get, row))
+            rows = len(raw_data)
+            columns = max(map(len, raw_data))
+            data = np.zeros((rows, columns), dtype=self.type)
+            for i in range(rows):
+                row = raw_data[i]
+                for j in range(columns):
+                    data[i,j] = row[j] if j < len(row) else None
+            return data
+    
+class Numeric(DataType):
+    def __init__(self):
+        self.type = float
+    
+    def __getitem__(self, arg):
         try:
-            yield float(value)
+            number = self.type(arg)
         except ValueError:
-            yield None
-        except TypeError:
-            yield None
-
-def load(datafile, label_map=None):
-    """Load data from a CSV
+            return None
+        if any(isinstance(number, t) for t in NUMBERS):
+            if not math.isnan(number):
+                return number
+            else:
+                return None
     
-    values must be numerical or empty
-    (columns correspond to annotators; rows correspond to subjects)"""
-    with open(datafile) as f:
-        reader = csv.reader(f)
-        raw_data = []
-        for row in reader:
-            raw_data.append(list(normalize(row, label_map)))
-        rows = len(raw_data)
-        columns = max(map(len, raw_data))
-        data = np.zeros((rows, columns), dtype=object)
-        for i in range(rows):
-            row = raw_data[i]
-            for j in range(columns):
-                data[i,j] = row[j] if j < len(row) else None
-        return data
-
-def load_stanford_sentiment(datafile):
-    """Load data from a CSV
+    def difference(self, v1, v2, values):
+        """Return the metric difference between v1 and v2 in the range [0.0,1.0]
     
-    values must be numerical or empty
-    (first column is ignored, and remaining columns correspond to annotators;
-    rows correspond to subjects)"""
-    with open(datafile) as f:
-        reader = csv.reader(f)
-        raw_data = []
-        for row in reader:
-            row.pop(0)
-            raw_data.append(list(normalize(row)))
-        rows = len(raw_data)
-        columns = max(map(len, raw_data))
-        data = np.zeros((rows, columns), dtype=float)
-        for i in range(rows):
-            row = raw_data[i]
-            for j in range(columns):
-                data[i,j] = row[j] if j < len(row) else None
-        return data
+        The difference is normalized by the maximum value in the data set"""
+        maximum_value = np.max(filter(None, map(self.get, values)))
+        return np.divide(abs(v1 - v2), maximum_value)
 
-def nominal_difference(v1, v2, _):
-    """Return 0.0 if v1 and v2 share the same value, 1.0 otherwise"""
-    return float(v1 != v2)
-
-def metric_difference(v1, v2, values):
-    """Return the metric difference between v1 and v2 in the range [0.0,1.0]
+class Nominal(DataType):
+    def __init__(self):
+        self.type = basestring
     
-    The metric difference is normalized by the maximum value in the data set"""
-    return np.divide(
-        abs(v1 - v2),
-        np.max(filter(numeric, values))
-    )
-
-def interval_difference(v1, v2, values):
-    """Return the interval difference between v1 and v2
+    def __getitem__(self, arg):
+        if isinstance(arg, self.type):
+            if arg == '':
+                return None
+            else:
+                return arg
+        elif any(isinstance(arg, t) for t in NUMBERS):
+            return str(arg)
+        else:
+            return None
     
-    The interval difference is the square of the metric difference"""
-    return np.square(metric_difference(v1, v2, values))
+    def difference(self, v1, v2, _):
+        """Return 0.0 if v1 and v2 are the same value, 1.0 otherwise"""
+        return float(v1 != v2)
 
-def get_codebook(data_filter, data):
+def get_codebook(data, data_type):
     """Return a codebook that maps labels/values to indices
     
     The codebook can be used to look up the corresponding column or row
     in a confusion matrix given a value/label"""
-    values = set(filter(data_filter, data.flatten()))
-    return dict(
-        (v,i) for (i,v) in enumerate(values)
-    )
+    values = set(filter(None, map(data_type.get, data.flatten())))
+    return dict((v,i) for (i,v) in enumerate(values))
 
 def numeric(value):
     """Predicate to deterimine if a given value is a numeric type
@@ -111,7 +102,7 @@ def nominal(value):
     """Predicate to determine if a given value can be treated as nominal"""
     return numeric(value) or (isinstance(value, basestring) and value)
 
-def get_coincidence_matrix(data, codebook, data_filter):
+def get_coincidence_matrix(data, codebook, data_type):
     """Given an N x M matrix D (data) with N subjects and M annotators/coders,
     produce an L x L coincidence matrix C where L is the number of labels/values
     assigned in the data such that cell C[i,j] is the frequency that the 
@@ -120,7 +111,7 @@ def get_coincidence_matrix(data, codebook, data_filter):
     shape = (len(labels), len(labels))
     matrix = np.zeros(shape, dtype=float)
     for row in data:
-        unit = filter(data_filter, row)
+        unit = filter(None, map(data_type.get, row))
         if len(unit) > 1:
             for v1, v2 in permutations(unit, 2):
                 i, j = codebook[v1], codebook[v2]
@@ -160,25 +151,20 @@ def expectation(coincidence_matrix, d):
     )
     return expectation
 
-def krippendorff(data, difference):
+def krippendorff(data, data_type):
     """Compute Krippendorff's α given a matrix D (data) of annotations
+    and a difference function δ.
     
     The data matrix D must be an N x M matrix where N is the number of subjects
     and M is the number of annotators/coders."""
     if not type(data) == np.ndarray:
         raise TypeError, 'expected a numpy array'
-    if not type(difference) == types.FunctionType:
-        raise TypeError, 'expected a difference function'
     if len(data.shape) != 2:
         raise ValueError, 'input must be 2-dimensional array'
-    if difference.__name__ == 'nominal_difference':
-        data_filter = nominal
-    else:
-        data_filter = numeric
-    cb = get_codebook(data_filter, data)
+    cb = get_codebook(data, data_type)
     icb = dict((i,v) for (v,i) in cb.iteritems())
-    cm = get_coincidence_matrix(data, cb, data_filter)
-    d = delta(cm, icb, difference)
+    cm = get_coincidence_matrix(data, cb, data_type)
+    d = delta(cm, icb, data_type.difference)
     observed = observation(cm, cb, d)
     expected = expectation(cm, d)
     perfection = 1.0
@@ -186,13 +172,26 @@ def krippendorff(data, difference):
     return a
 
 if __name__ == '__main__':
-    filename = sys.argv[1]
-    data = load_stanford_sentiment(filename)
-    #data = load(filename, ENTITY_TYPES_MAP)
-    dfs = [
-        nominal_difference,
-        metric_difference,
-        interval_difference
-    ]
-    for df in dfs:
-        print '{} : {}'.format(df.__name__, krippendorff(data, df))
+    import argparse
+    
+    DATA_TYPES = dict((dt().name().lower(), dt()) for dt in (Nominal, Numeric))
+    parser = argparse.ArgumentParser(
+        description=__doc__
+    )
+    parser.add_argument(
+        'filename',
+        metavar='data.csv',
+        help='a CSV data file (rows=subjects, columns=annotators)'
+    )
+    parser.add_argument(
+        '-t',
+        '--type',
+        default='nominal',
+        choices=DATA_TYPES.keys(),
+        help='how to treat the data labels (default="nominal")'
+    )
+    args = parser.parse_args()
+    data_type = DATA_TYPES[args.type.lower()]
+    data = data_type.load(args.filename)
+    print 'δ: {} difference'.format(data_type.name())
+    print 'α: {}'.format(krippendorff(data, data_type))
