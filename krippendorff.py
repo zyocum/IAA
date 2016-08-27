@@ -137,7 +137,7 @@ def delta(coincidence_matrix, inverse_codebook, difference):
 def observation(coincidence_matrix, d):
     """Compute the observed agreement D(o).
                     
-    D(o) = 𝛴[v=1,v'=1 → V] o(v,v') * δ(v,v')
+    D(o) = 𝛴(v=1,v'=1 → V)[o(v,v') * δ(v,v')]
     
     Where...
               V = the size of the set of values/labels that occur in the data
@@ -156,7 +156,7 @@ def observation(coincidence_matrix, d):
 def expectation(coincidence_matrix, d):
     """Compute the expected agreement D(e).
     
-            𝛴[v=1,v'=1 → V] n(v) * n(v') * δ(v,v')
+            𝛴(v=1,v'=1 → V)[n(v) * n(v') * δ(v,v')]
     D(e) = ----------------------------------------
                             n - 1
     
@@ -194,9 +194,9 @@ def krippendorff(data, data_type):
     frequencies of instances where annotators agreed, and values above and below
     the diagonal are symmetric, containing the frequencies of disagreements.
     
-             D(o)         (n - 1) * 𝛴[v=1,v'=1 → V] o(v,v') * δ(v,v')
+             D(o)         (n - 1) * 𝛴(v=1,v'=1 → V)[o(v,v') * δ(v,v')]
     α = 1 - ------ = 1 - ---------------------------------------------
-             D(e)           𝛴[v=1,v'=1 → V] n(v) * n(v') * δ(v,v')
+             D(e)           𝛴(v=1,v'=1 → V)[n(v) * n(v') * δ(v,v')]
     
     Where...
            D(o) = the observed agreement
