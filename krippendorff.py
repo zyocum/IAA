@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- mode: Python; coding: utf-8 -*-
 """Functions for computing Krippendorff's alpha (α), a measure of 
 inter-annotator agreement between two or more annotators."""
@@ -6,6 +7,7 @@ import csv
 import sys
 import math
 import types
+from warnings import warn
 from itertools import permutations
 
 import numpy as np
@@ -27,21 +29,19 @@ class DataType():
         return self[arg]
     
     def load(self, datafile):
-        """Load data from TSV
-        (rows = subjects; columns = annotators)"""
-        with open(datafile) as f:
-            reader = csv.reader(f, delimiter='\t')
-            raw_data = []
-            for row in reader:
-                raw_data.append(map(self.get, row))
-            rows = len(raw_data)
-            columns = max(map(len, raw_data))
-            data = np.zeros((rows, columns), dtype=self.type)
-            for i in range(rows):
-                row = raw_data[i]
-                for j in range(columns):
-                    data[i,j] = row[j] if j < len(row) else None
-            return data
+        """Load data from TSV (rows = subjects; columns = annotators)"""
+        reader = csv.reader(datafile, delimiter='\t')
+        raw_data = []
+        for row in reader:
+            raw_data.append(map(self.get, row))
+        rows = len(raw_data)
+        columns = max(map(len, raw_data))
+        data = np.zeros((rows, columns), dtype=self.type)
+        for i in range(rows):
+            row = raw_data[i]
+            for j in range(columns):
+                data[i,j] = row[j] if j < len(row) else None
+        return data
 
 class Nominal(DataType):
     """A nominal data type with a nominal difference function"""
@@ -105,7 +105,7 @@ def get_coincidence_matrix(data, codebook, data_type):
     shape = (len(labels), len(labels))
     matrix = np.zeros(shape, dtype=float)
     for row in data:
-        unit = filter(None, map(data_type.get, row))
+        unit = [x for x in map(data_type.get, row) if x is not None]
         if len(unit) > 1:
             for v1, v2 in permutations(unit, 2):
                 i, j = codebook[v1], codebook[v2]
@@ -196,7 +196,15 @@ def krippendorff(data, data_type):
         raise TypeError, 'expected a numpy array'
     if len(data.shape) != 2:
         raise ValueError, 'input must be 2-dimensional array'
-    values = set(filter(None, map(data_type.get, data.flatten())))
+    if data.shape < (1,2):
+        raise ValueError, 'input must have at least one row and two columns'
+    values = set(x for x in map(data_type.get, data.flatten()) if x is not None)
+    if not any(values):
+        message = 'input must include at least one value/label of type {}'
+        raise ValueError, message.format(data_type.type.__name__)
+    if len(values) == 1:
+        print >> sys.stderr, 'Warning: all input values are identical!'
+        return 1.0
     codebook = dict((v,i) for (i,v) in enumerate(values))
     inverse_codebook = dict(enumerate(values))
     cm = get_coincidence_matrix(data, codebook, data_type)
@@ -209,6 +217,7 @@ def krippendorff(data, data_type):
 
 if __name__ == '__main__':
     import argparse
+    import os
     DATA_TYPES = (Nominal, Ordinal, Interval)
     DATA_TYPES_DICT = dict((dt().name().lower(), dt()) for dt in DATA_TYPES)
     parser = argparse.ArgumentParser(
@@ -216,9 +225,12 @@ if __name__ == '__main__':
         interannotator agreement between two or more annotators."
     )
     parser.add_argument(
-        'filename',
+        '-i',
+        '--input',
+        default=sys.stdin,
         metavar='data.csv',
-        help='a CSV data file (rows=subjects, columns=annotators)'
+        help='''a TSV data file (rows=subjects, columns=annotators)
+        (data is read from stdin if no path is given)'''
     )
     parser.add_argument(
         '-t',
@@ -229,6 +241,12 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
     data_type = DATA_TYPES_DICT[args.type.lower()]
-    data = data_type.load(args.filename)
+    if isinstance(args.input, basestring) and os.path.isfile(args.input):
+        with open(args.input, mode='r') as f:
+            data = data_type.load(f)
+    elif isinstance(args.input, file):
+        data = data_type.load(args.input)
+    else:
+        raise ValueError, '--input must stdin, or a path to a TSV file'
     print 'δ: {} difference'.format(data_type.name())
     print 'α: {}'.format(krippendorff(data, data_type))
