@@ -30,7 +30,13 @@ class DataType():
     
     def load(self, datafile):
         """Load data from TSV (rows = subjects; columns = annotators)"""
-        reader = csv.reader(datafile, delimiter='\t')
+        if isinstance(datafile, basestring) and os.path.isfile(datafile):
+            with open(datafile, mode='r') as f:
+                reader = csv.reader(f, delimiter='\t')
+        elif isinstance(datafile, file):
+            reader = csv.reader(datafile, delimiter='\t')
+        else:
+            raise ValueError, 'data file must be stdin, or a path to a TSV file'
         raw_data = []
         for row in reader:
             raw_data.append(map(self.get, row))
@@ -192,7 +198,6 @@ def krippendorff(data, data_type):
            n(v) = the sum of the row v of the coincidence matrix
           n(v') = the sum of the column v' of the coincidence matrix
               n = the sum of the coincidence matrix
-
     """
     if not type(data) == np.ndarray:
         raise TypeError, 'expected a numpy array'
@@ -244,12 +249,6 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
     data_type = DATA_TYPES_DICT[args.type.lower()]
-    if isinstance(args.input, basestring) and os.path.isfile(args.input):
-        with open(args.input, mode='r') as f:
-            data = data_type.load(f)
-    elif isinstance(args.input, file):
-        data = data_type.load(args.input)
-    else:
-        raise ValueError, '--input must stdin, or a path to a TSV file'
+    data = data_type.load(args.input)
     print 'δ: {} difference'.format(data_type.name())
     print 'α: {}'.format(krippendorff(data, data_type))
