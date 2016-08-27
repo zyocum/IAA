@@ -34,6 +34,8 @@ class DataType():
         raw_data = []
         for row in reader:
             raw_data.append(map(self.get, row))
+        if not raw_data:
+            raise ValueError, 'input data must be non-empty'
         rows = len(raw_data)
         columns = max(map(len, raw_data))
         data = np.zeros((rows, columns), dtype=self.type)
@@ -74,7 +76,7 @@ class Ordinal(DataType):
         except ValueError:
             return None
         if any(isinstance(number, t) for t in NUMBERS):
-            if not math.isnan(number):
+            if np.isfinite(number):
                 return number
             else:
                 return None
@@ -196,8 +198,9 @@ def krippendorff(data, data_type):
         raise TypeError, 'expected a numpy array'
     if len(data.shape) != 2:
         raise ValueError, 'input must be 2-dimensional array'
-    if data.shape < (1,2):
-        raise ValueError, 'input must have at least one row and two columns'
+    if data.shape < (1, 2):
+        message = 'input must be at least 1 row x 2 columns (rows x annotators)'
+        raise ValueError, message
     values = set(x for x in map(data_type.get, data.flatten()) if x is not None)
     if not any(values):
         message = 'input must include at least one value/label of type {}'
