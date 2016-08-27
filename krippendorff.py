@@ -155,7 +155,7 @@ def observation(coincidence_matrix, d):
 
 def expectation(coincidence_matrix, d):
     """Compute the expected agreement D(e).
-
+    
             𝛴[v=1,v'=1 → V] n(v) * n(v') * δ(v,v')
     D(e) = ----------------------------------------
                             n - 1
@@ -186,6 +186,14 @@ def krippendorff(data, data_type):
     be an N x M matrix where N is the number of subjects and M is the number of
     annotators.
     
+    From the data matrix D a coincidence matrix C is computed with dimensions
+    V x V where V is the size of the set of values assigned in the data. Thus,
+    each column and row of the coincidence matrix C corresponds to a value/label
+    in the data, and the frequency with which the pair of labels v and v' were
+    assigned are stored in cell C[v,v'].  The diagonal of C contains the
+    frequencies of instances where annotators agreed, and values above and below
+    the diagonal are symmetric, containing the frequencies of disagreements.
+    
              D(o)         (n - 1) * 𝛴[v=1,v'=1 → V] o(v,v') * δ(v,v')
     α = 1 - ------ = 1 - ---------------------------------------------
              D(e)           𝛴[v=1,v'=1 → V] n(v) * n(v') * δ(v,v')
@@ -193,11 +201,14 @@ def krippendorff(data, data_type):
     Where...
            D(o) = the observed agreement
            D(e) = the expected agreement
+              n = the sum of the coincidence matrix
+              v = a row index of the coincidence matrix
+             v' = a column index of the coincidence matrix
+              V = the size of the set of values assigned in the data
         o(v,v') = the value in cell [v,v'] in the coincidence matrix
-        δ(v,v') = the difference function applied to v,v'
+        δ(v,v') = the difference function applied to the values of v and v'
            n(v) = the sum of the row v of the coincidence matrix
           n(v') = the sum of the column v' of the coincidence matrix
-              n = the sum of the coincidence matrix
     """
     if not type(data) == np.ndarray:
         raise TypeError, 'expected a numpy array'
@@ -206,7 +217,7 @@ def krippendorff(data, data_type):
     if data.shape < (1, 2):
         message = 'input must be at least 1 row x 2 columns (rows x annotators)'
         raise ValueError, message
-    values = set(x for x in map(data_type.get, data.flatten()) if x is not None)
+    values = set(map(data_type.get, data.flatten())) - {None}
     if not any(values):
         message = 'input must include at least one value/label of type {}'
         raise ValueError, message.format(data_type.type.__name__)
