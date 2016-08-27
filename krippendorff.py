@@ -157,7 +157,7 @@ def expectation(coincidence_matrix, d):
     """Compute the expected agreement D(e).
     
             𝛴(v=1,v'=1 → V)[n(v) * n(v') * δ(v,v')]
-    D(e) = ----------------------------------------
+    D(e) = -----------------------------------------
                             n - 1
     
     Where...
@@ -195,7 +195,7 @@ def krippendorff(data, data_type):
     the diagonal are symmetric, containing the frequencies of disagreements.
     
              D(o)         (n - 1) * 𝛴(v=1,v'=1 → V)[o(v,v') * δ(v,v')]
-    α = 1 - ------ = 1 - ---------------------------------------------
+    α = 1 - ------ = 1 - ----------------------------------------------
              D(e)           𝛴(v=1,v'=1 → V)[n(v) * n(v') * δ(v,v')]
     
     Where...
