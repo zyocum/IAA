@@ -112,7 +112,7 @@ def get_coincidence_matrix(data, codebook, data_type):
             for v1, v2 in permutations(unit, 2):
                 i, j = codebook[v1], codebook[v2]
                 matrix[i,j] += 1.0 / (len(unit) - 1.0)
-    return matrix.astype(int)
+    return matrix
 
 def delta(coincidence_matrix, inverse_codebook, difference):
     """Compute a delta vector.
