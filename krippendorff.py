@@ -36,7 +36,7 @@ class DataType():
         elif isinstance(datafile, file):
             reader = csv.reader(datafile, delimiter='\t')
         else:
-            raise ValueError, 'data file must be stdin, or a path to a TSV file'
+            raise ValueError, 'datafile must be an open file, or a file path'
         raw_data = []
         for row in reader:
             raw_data.append(map(self.get, row))
@@ -123,7 +123,7 @@ def get_coincidence_matrix(data, codebook, data_type):
 def delta(coincidence_matrix, inverse_codebook, difference):
     """Compute a delta vector.
     
-    Given a coincidence matrix, an inverse codebook, and a difference function
+    Given a coincidence matrix, an inverse codebook, and a difference function,
     compute a delta vector that can be used to compute observed and expected
     agreement.  The inverse codebook allows for looking up values from the
     row/column indices of the coincidence matrix."""
@@ -140,11 +140,11 @@ def observation(coincidence_matrix, d):
     D(o) = 𝛴[v=1,v'=1 → V] o(v,v') * δ(v,v')
     
     Where...
-              V = all values/labels that occur in the data
+              V = the size of the set of values/labels that occur in the data
               v = a row index of the coincidence matrix
              v' = a column indix of the coincidence matrix
-        o(v,v') = the value in cell [v,v'] in the coincidence matrix
-        δ(v,v') = the difference function applied to v,v'
+        o(v,v') = the frequency in cell C[v,v'] in the coincidence matrix C
+        δ(v,v') = the difference function applied to the values of v and v'
     """
     o = []
     for i in range(len(coincidence_matrix)):
@@ -161,12 +161,12 @@ def expectation(coincidence_matrix, d):
                             n - 1
     
     Where...
-              V = all values/labels that occur in the data
+              V = the size of the set of values/labels that occur in the data
               v = a row index of the coincidence matrix
              v' = a column indix of the coincidence matrix
            n(v) = the sum of the row v of the coincidence matrix
           n(v') = the sum of the column v' of the coincidence matrix
-        δ(v,v') = the difference function applied to v,v'
+        δ(v,v') = the difference function applied to the values of v and v'
               n = the sum of the coincidence matrix
     """
     n = []
@@ -204,7 +204,7 @@ def krippendorff(data, data_type):
               n = the sum of the coincidence matrix
               v = a row index of the coincidence matrix
              v' = a column index of the coincidence matrix
-              V = the size of the set of values assigned in the data
+              V = the size of the set of values/labels that occur in the data
         o(v,v') = the value in cell [v,v'] in the coincidence matrix
         δ(v,v') = the difference function applied to the values of v and v'
            n(v) = the sum of the row v of the coincidence matrix
