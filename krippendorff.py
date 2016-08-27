@@ -80,7 +80,7 @@ class Ordinal(DataType):
                 return None
     
     def difference(self, v1, v2, values):
-        """Return the metric difference between v1 and v2 in the range [0.0,1.0]
+        """Return the metric difference between v1 and v2 between [0.0,1.0]
     
         The difference is normalized by the maximum value in the data set"""
         return np.divide(abs(v1 - v2), np.max(values))
@@ -89,7 +89,7 @@ class Interval(Ordinal):
     """A numeric data type with an interval difference function"""
     
     def difference(self, v1, v2, values):
-        """Return the metric difference between v1 and v2 in the range [0.0,1.0]
+        """Return the interval difference between v1 and v2 between [0.0,1.0]
     
         The difference is normalized by the maximum value in the data set"""
         return np.divide((v1 - v2) ** 2, np.max(values))
