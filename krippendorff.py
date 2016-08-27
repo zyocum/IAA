@@ -42,28 +42,6 @@ class DataType():
                 for j in range(columns):
                     data[i,j] = row[j] if j < len(row) else None
             return data
-    
-class Numeric(DataType):
-    """A numeric data type with a metric difference function"""
-    def __init__(self):
-        self.type = float
-    
-    def __getitem__(self, arg):
-        try:
-            number = self.type(arg)
-        except ValueError:
-            return None
-        if any(isinstance(number, t) for t in NUMBERS):
-            if not math.isnan(number):
-                return number
-            else:
-                return None
-    
-    def difference(self, v1, v2, values):
-        """Return the metric difference between v1 and v2 in the range [0.0,1.0]
-    
-        The difference is normalized by the maximum value in the data set"""
-        return np.divide(abs(v1 - v2), np.max(values))
 
 class Nominal(DataType):
     """A nominal data type with a nominal difference function"""
@@ -85,8 +63,41 @@ class Nominal(DataType):
         """Return 0.0 if v1 and v2 are the same value, 1.0 otherwise"""
         return float(v1 != v2)
 
+class Ordinal(DataType):
+    """A numeric data type with a metric difference function"""
+    def __init__(self):
+        self.type = float
+    
+    def __getitem__(self, arg):
+        try:
+            number = self.type(arg)
+        except ValueError:
+            return None
+        if any(isinstance(number, t) for t in NUMBERS):
+            if not math.isnan(number):
+                return number
+            else:
+                return None
+    
+    def difference(self, v1, v2, values):
+        """Return the metric difference between v1 and v2 in the range [0.0,1.0]
+    
+        The difference is normalized by the maximum value in the data set"""
+        return np.divide(abs(v1 - v2), np.max(values))
+
+class Interval(Ordinal):
+    """A numeric data type with an interval difference function"""
+    
+    def difference(self, v1, v2, values):
+        """Return the metric difference between v1 and v2 in the range [0.0,1.0]
+    
+        The difference is normalized by the maximum value in the data set"""
+        return np.divide((v1 - v2) ** 2, np.max(values))
+
 def get_coincidence_matrix(data, codebook, data_type):
-    """Given an N x M matrix D (data) with N subjects and M annotators/coders,
+    """Return a coincidence matrix
+    
+    Given an N x M matrix D (data) with N subjects and M annotators/coders,
     produce an L x L coincidence matrix C where L is the number of labels/values
     assigned in the data such that cell C[i,j] is the frequency that the 
     annotators assigned labels i and j to a subject."""
@@ -102,11 +113,12 @@ def get_coincidence_matrix(data, codebook, data_type):
     return matrix.astype(int)
 
 def delta(coincidence_matrix, inverse_codebook, difference):
-    """Compute a delta vector from a coincidence matrix, an inverse codebook,
-    and a difference function
+    """Compute a delta vector.
     
-    The inverse codebook allows for looking up values from the row/column
-    indices of the coincidence matrix"""
+    Given a coincidence matrix, an inverse codebook, and a difference function
+    compute a delta vector that can be used to compute observed and expected
+    agreement.  The inverse codebook allows for looking up values from the
+    row/column indices of the coincidence matrix."""
     delta = []
     for i in range(len(coincidence_matrix)):
         for j in range(i+1, len(coincidence_matrix)):
@@ -115,7 +127,17 @@ def delta(coincidence_matrix, inverse_codebook, difference):
     return np.array(delta)
 
 def observation(coincidence_matrix, d):
-    """Compute the observed agreement D(o)"""
+    """Compute the observed agreement D(o).
+                    
+    D(o) = 𝛴[v=1,v'=1 → V] o(v,v') * δ(v,v')
+    
+    Where...
+              V = all values/labels that occur in the data
+              v = a row index of the coincidence matrix
+             v' = a column indix of the coincidence matrix
+        o(v,v') = the value in cell [v,v'] in the coincidence matrix
+        δ(v,v') = the difference function applied to v,v'
+    """
     o = []
     for i in range(len(coincidence_matrix)):
         for j in range(i+1, len(coincidence_matrix)):
@@ -124,25 +146,52 @@ def observation(coincidence_matrix, d):
     return observation
 
 def expectation(coincidence_matrix, d):
-    """Compute the expected agreement D(e)"""
+    """Compute the expected agreement D(e).
+
+            𝛴[v=1,v'=1 → V] n(v) * n(v') * δ(v,v')
+    D(e) = ----------------------------------------
+                            n - 1
+    
+    Where...
+              V = all values/labels that occur in the data
+              v = a row index of the coincidence matrix
+             v' = a column indix of the coincidence matrix
+           n(v) = the sum of the row v of the coincidence matrix
+          n(v') = the sum of the column v' of the coincidence matrix
+        δ(v,v') = the difference function applied to v,v'
+              n = the sum of the coincidence matrix
+    """
     n = []
     for i in range(len(coincidence_matrix)):
         for j in range(i+1, len(coincidence_matrix)):
             cm_i = np.sum(coincidence_matrix[i])
             cm_j = np.sum(coincidence_matrix[j])
             n.append(cm_i * cm_j)
-    expectation = np.divide(
-        np.dot(n, d),
-        sum(coincidence_matrix.sum(axis=1)) - 1
-    )
+    expectation = np.divide(np.dot(n, d), coincidence_matrix.sum() - 1)
     return expectation
 
 def krippendorff(data, data_type):
-    """Compute Krippendorff's α given a matrix D (data) of annotations
-    and a difference function δ.
+    """Compute Krippendorff's α.
     
-    The data matrix D must be an N x M matrix where N is the number of subjects
-    and M is the number of annotators/coders."""
+    Given a matrix D (data) of annotations and a data type class with a
+    difference function δ, compute the agreement score.  The data matrix D must
+    be an N x M matrix where N is the number of subjects and M is the number of
+    annotators.
+    
+             D(o)         (n - 1) * 𝛴[v=1,v'=1 → V] o(v,v') * δ(v,v')
+    α = 1 - ------ = 1 - ---------------------------------------------
+             D(e)           𝛴[v=1,v'=1 → V] n(v) * n(v') * δ(v,v')
+    
+    Where...
+           D(o) = the observed agreement
+           D(e) = the expected agreement
+        o(v,v') = the value in cell [v,v'] in the coincidence matrix
+        δ(v,v') = the difference function applied to v,v'
+           n(v) = the sum of the row v of the coincidence matrix
+          n(v') = the sum of the column v' of the coincidence matrix
+              n = the sum of the coincidence matrix
+
+    """
     if not type(data) == np.ndarray:
         raise TypeError, 'expected a numpy array'
     if len(data.shape) != 2:
@@ -160,8 +209,8 @@ def krippendorff(data, data_type):
 
 if __name__ == '__main__':
     import argparse
-    
-    DATA_TYPES = dict((dt().name().lower(), dt()) for dt in (Nominal, Numeric))
+    DATA_TYPES = (Nominal, Ordinal, Interval)
+    DATA_TYPES_DICT = dict((dt().name().lower(), dt()) for dt in DATA_TYPES)
     parser = argparse.ArgumentParser(
         description="Compute Krippendorff's alpha (α), a measure of \
         interannotator agreement between two or more annotators."
@@ -175,11 +224,11 @@ if __name__ == '__main__':
         '-t',
         '--type',
         default='nominal',
-        choices=DATA_TYPES.keys(),
+        choices=DATA_TYPES_DICT.keys(),
         help='how to treat the data labels (default="nominal")'
     )
     args = parser.parse_args()
-    data_type = DATA_TYPES[args.type.lower()]
+    data_type = DATA_TYPES_DICT[args.type.lower()]
     data = data_type.load(args.filename)
     print 'δ: {} difference'.format(data_type.name())
     print 'α: {}'.format(krippendorff(data, data_type))
