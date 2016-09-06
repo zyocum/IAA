@@ -214,7 +214,7 @@ def krippendorff(data, data_type):
     if len(data.shape) != 2:
         raise ValueError, 'input must be 2-dimensional array'
     if data.shape < (1, 2):
-        message = 'input must be at least 1 row x 2 columns (rows x annotators)'
+        message = 'input must have dimensions at least 1 x 2 (rows x columns)'
         raise ValueError, message
     values = set(map(data_type.get, data.flatten())) - {None}
     if not any(values):
