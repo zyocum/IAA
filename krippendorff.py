@@ -223,7 +223,7 @@ def krippendorff(data, data_type):
     if len(values) == 1:
         print >> sys.stderr, 'Warning: all input values are identical!'
         return 1.0
-    codebook = dict((v,i) for (i,v) in enumerate(values))
+    codebook = {v : i for (i, v) in enumerate(values)}
     inverse_codebook = dict(enumerate(values))
     cm = get_coincidence_matrix(data, codebook, data_type)
     d = delta(cm, inverse_codebook, data_type.difference)
@@ -237,7 +237,7 @@ if __name__ == '__main__':
     import argparse
     import os
     DATA_TYPES = (Nominal, Ordinal, Interval)
-    DATA_TYPES_DICT = dict((dt().name().lower(), dt()) for dt in DATA_TYPES)
+    DATA_TYPES_DICT = {dt().name().lower() : dt() for dt in DATA_TYPES}
     parser = argparse.ArgumentParser(
         description="Compute Krippendorff's alpha (α), a measure of \
         interannotator agreement between two or more annotators."
