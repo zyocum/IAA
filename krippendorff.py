@@ -63,7 +63,7 @@ class Nominal(DataType):
                 return None
             else:
                 return arg
-        elif any(isinstance(arg, t) for t in NUMBERS):
+        elif type(arg) in NUMBERS:
             return str(arg)
         else:
             return None
@@ -82,7 +82,7 @@ class Ordinal(DataType):
             number = self.type(arg)
         except ValueError:
             return None
-        if any(isinstance(number, t) for t in NUMBERS):
+        if type(number) in NUMBERS:
             if np.isfinite(number):
                 return number
             else:
