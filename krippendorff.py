@@ -37,12 +37,14 @@ class DataType():
         else:
             raise ValueError, 'datafile must be an open file, or a file path'
         raw_data = []
+        columns = 0
         for row in reader:
-            raw_data.append(map(self.get, row))
+            values = map(self.get, row)
+            columns = max(len(values), columns)
+            raw_data.append(values)
         if not raw_data:
             raise ValueError, 'input data must be non-empty'
         rows = len(raw_data)
-        columns = max(map(len, raw_data))
         data = np.zeros((rows, columns), dtype=self.type)
         for i in range(rows):
             row = raw_data[i]
