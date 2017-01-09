@@ -34,7 +34,7 @@ DATA_TYPES = 'complex', 'double', 'float', 'str', 'object_'
 
 def load(datafile, **kwargs):
     """Load data from file via pandas.DataFrame and convert to numpy.array"""
-    raw = pd.read_csv(datafile, **kwargs)
+    raw = pd.read_table(datafile, **kwargs)
     if raw.empty:
         raise ValueError('input data must be non-empty')
     if raw.ndim != 2:
