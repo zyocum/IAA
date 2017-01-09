@@ -37,16 +37,15 @@ def load(datafile, **kwargs):
     raw = pd.read_table(datafile, **kwargs)
     if raw.empty:
         raise ValueError('input data must be non-empty')
-    if raw.ndim != 2:
-        raise ValueError('input data must be 2-dimensional')
-    if len(set(raw.dtypes)) != 1:
-        message = 'input data must be uniformly typed (found types: {})'
-        raise ValueError(message.format(set(raw.dtypes)))
+    dtypes = set(raw.dtypes)
+    if len(dtypes) != 1:
+        message = 'input data must be uniformly typed (found {} types: {})'
+        raise ValueError(message.format(len(dtypes), dtypes))
     data = raw.as_matrix()
     return data
 
 class Difference():
-    def __init__(self, dtype, method):
+    def __init__(self, dtype, method='nominal'):
         self.dtype = dtype
         self.method = method
     
@@ -59,7 +58,7 @@ class Difference():
     
         The difference is normalized by the maximum value in the data set
         """
-        return np.divide(abs(v1 - v2), np.max(values))
+        return np.divide(abs(v1 - v2), abs(np.max(values) - np.min(values)))
     
     def ordinal(self, v1, v2, *args):
         """Return the ordinal difference between ranks v1 and v2"""
@@ -72,7 +71,7 @@ class Difference():
         """
         return np.divide((v1 - v2) ** 2, np.max(values))
     
-    def delta(self, *args):
+    def _delta(self, *args):
         """Convenience method for calling Difference.method(*args)"""
         return methodcaller(self.method, *args)(self)
 
@@ -106,7 +105,7 @@ def delta(coincidence_matrix, inverse_codebook, difference):
         for j in range(i+1, len(coincidence_matrix)):
             v1, v2 = inverse_codebook[i], inverse_codebook[j]
             values = list(inverse_codebook.values())
-            delta.append(difference.delta(v1, v2, values))
+            delta.append(difference._delta(v1, v2, values))
     return np.array(delta)
 
 def observation(coincidence_matrix, d):
@@ -188,7 +187,7 @@ def krippendorff(data, difference):
     if isinstance(data, pd.DataFrame):
         data = data.as_matrix()
     if not isinstance(data, np.ndarray):
-        raise TypeError('expected a pandas.DataFrame')
+        raise TypeError('expected a pandas.DataFrame or np.ndarray')
     if data.ndim != 2:
         raise ValueError('input must be 2-dimensional array')
     if data.shape < (1, 2):
@@ -253,33 +252,27 @@ if __name__ == '__main__':
         Regex example: ``'\r\t'``'''
     )
     parser.add_argument(
-        '-r',
-        '--header',
-        default=None,
-        nargs='+',
-        help='''Row number(s) to use as the column names, and the start of the 
-        data. Default behavior is as if set to 0 if no ``names`` passed, 
-        otherwise ``None``. Explicitly pass ``header=0`` to be able to replace 
-        existing names. The header can be a list of integers that specify row 
-        locations for a multi-index on the columns e.g. [0,1,3]. Intervening 
-        rows that are not specified will be skipped (e.g. 2 in this example is 
-        skipped). Note that this parameter ignores commented lines and empty 
-        lines if ``skip_blank_lines=True``, so header=0 denotes the first line 
-        of data rather than the first line of the file.'''
-    )
-    parser.add_argument(
         '--na-values',
+        '--nil-values',
+        '--null-values',
         default=DEFAULT_NAN_VALUES,
         nargs='+',
-        help='''Additional strings to recognize as NA/NaN.''',
+        help='''List of strings to recognize as NA/NaN/null.''',
     )
     parser.add_argument(
         '--skip-blank-lines',
         action='store_true',
-        help='''skip over blank lines rather than interpreting as NaN values'''
+        help='''Skip over blank lines rather than interpreting as NaN values'''
     )
     parser.add_argument(
+        '--no-header',
+        action='store_true',
+        help='''Indicate that there is no header row in the data'''
+    )
+    parser.add_argument(
+        '-c',
         '--usecols',
+        '--columns',
         nargs='+',
         metavar='COLUMN',
         default=None,
@@ -290,13 +283,24 @@ if __name__ == '__main__':
         parameter would be [0, 1, 2] or ['foo', 'bar', 'baz']. Using this 
         parameter results in much faster parsing time and lower memory usage.'''
     )
+    parser.add_argument(
+        '-n',
+        '--names',
+        nargs='+',
+        default=None,
+        help='''List of column names to use. If file contains no header row, then you
+        should explicitly use --no-header. Duplicates in this list are not
+        allowed unless mangle_dupe_cols=True, which is the default.'''
+    )
     args = parser.parse_args()
     dtype = attrgetter(args.dtype)(np)
     nan_values = args.na_values
+    header = 'infer'
     data = load(
         args.input,
+        header=None if args.no_header else 'infer',
+        names=args.names,
         delimiter=args.delimiter,
-        header=args.header,
         na_values=args.na_values,
         skip_blank_lines=args.skip_blank_lines,
         usecols=args.usecols,
