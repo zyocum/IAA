@@ -1,109 +1,82 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- mode: Python; coding: utf-8 -*-
 """Functions for computing Krippendorff's alpha (α), a measure of 
 inter-annotator agreement between two or more annotators."""
 
-import csv
 import sys
-import math
-import types
 from itertools import permutations
+from operator import attrgetter, methodcaller
 
 import numpy as np
+import pandas as pd
 
-NUMBERS = (int, float, long, complex)
+NUMBERS = int, float, complex
 
-class DataType():
-    """Base class for defining data types"""
-    def __init__(self, t):
-        self.type = t
-    
-    def __getitem__(self, arg):
-        return self.type(arg)
-    
-    def name(self):
-        return self.__class__.__name__
-    
-    def get(self, arg):
-        return self[arg]
-    
-    def load(self, datafile):
-        """Load data from TSV (rows = subjects; columns = annotators)"""
-        if isinstance(datafile, basestring) and os.path.isfile(datafile):
-            with open(datafile, mode='r') as f:
-                reader = csv.reader(f, delimiter='\t')
-        elif isinstance(datafile, file):
-            reader = csv.reader(datafile, delimiter='\t')
-        else:
-            raise ValueError, 'datafile must be an open file, or a file path'
-        raw_data = []
-        columns = 0
-        for row in reader:
-            values = map(self.get, row)
-            columns = max(len(values), columns)
-            raw_data.append(values)
-        if not raw_data:
-            raise ValueError, 'input data must be non-empty'
-        rows = len(raw_data)
-        data = np.zeros((rows, columns), dtype=self.type)
-        for i in range(rows):
-            row = raw_data[i]
-            for j in range(columns):
-                data[i,j] = row[j] if j < len(row) else None
-        return data
+DEFAULT_NAN_VALUES = [
+    '',
+    '#N/A',
+    '#N/A N/A',
+    '#NA',
+    '-1.#IND',
+    '-1.#QNAN',
+    '-NaN',
+    '-nan',
+    '1.#IND',
+    '1.#QNAN',
+    'N/A',
+    'NA',
+    'NULL',
+    'NaN',
+    'nan'
+]
 
-class Nominal(DataType):
-    """A nominal data type with a nominal difference function"""
-    def __init__(self):
-        self.type = basestring
+DATA_TYPES = 'complex', 'double', 'float', 'str', 'object_'
+
+def load(datafile, **kwargs):
+    """Load data from file via pandas.DataFrame and convert to numpy.array"""
+    raw = pd.read_csv(datafile, **kwargs)
+    if raw.empty:
+        raise ValueError('input data must be non-empty')
+    if raw.ndim != 2:
+        raise ValueError('input data must be 2-dimensional')
+    if len(set(raw.dtypes)) != 1:
+        message = 'input data must be uniformly typed (found types: {})'
+        raise ValueError(message.format(set(raw.dtypes)))
+    data = raw.as_matrix()
+    return data
+
+class Difference():
+    def __init__(self, dtype, method):
+        self.dtype = dtype
+        self.method = method
     
-    def __getitem__(self, arg):
-        if isinstance(arg, self.type):
-            if arg == '':
-                return None
-            else:
-                return arg
-        elif type(arg) in NUMBERS:
-            return str(arg)
-        else:
-            return None
-    
-    def difference(self, v1, v2, _):
+    def nominal(self, v1, v2, *args):
         """Return 0.0 if v1 and v2 are the same value, 1.0 otherwise"""
         return float(v1 != v2)
-
-class Ordinal(DataType):
-    """A numeric data type with a metric difference function"""
-    def __init__(self):
-        self.type = float
     
-    def __getitem__(self, arg):
-        try:
-            number = self.type(arg)
-        except ValueError:
-            return None
-        if type(number) in NUMBERS:
-            if np.isfinite(number):
-                return number
-            else:
-                return None
-    
-    def difference(self, v1, v2, values):
+    def metric(self, v1, v2, values, *args):
         """Return the metric difference between v1 and v2 between [0.0,1.0]
     
-        The difference is normalized by the maximum value in the data set"""
+        The difference is normalized by the maximum value in the data set
+        """
         return np.divide(abs(v1 - v2), np.max(values))
-
-class Interval(Ordinal):
-    """A numeric data type with an interval difference function"""
     
-    def difference(self, v1, v2, values):
-        """Return the interval difference between v1 and v2 between [0.0,1.0]
+    def ordinal(self, v1, v2, *args):
+        """Return the ordinal difference between ranks v1 and v2"""
+        return np.sum(np.arange(v1, v2) - np.divide(v1 + v2, 2)) ** 2
     
-        The difference is normalized by the maximum value in the data set"""
+    def interval(self, v1, v2, values, *args):
+        """Return the interval difference between v1 and v2
+    
+        The difference is normalized by the maximum value in the data set
+        """
         return np.divide((v1 - v2) ** 2, np.max(values))
+    
+    def delta(self, *args):
+        """Convenience method for calling Difference.method(*args)"""
+        return methodcaller(self.method, *args)(self)
 
-def get_coincidence_matrix(data, codebook, data_type):
+def get_coincidence_matrix(data, codebook):
     """Return a coincidence matrix
     
     Given an N x M matrix D (data) with N subjects and M annotators/coders,
@@ -114,7 +87,7 @@ def get_coincidence_matrix(data, codebook, data_type):
     shape = (len(labels), len(labels))
     matrix = np.zeros(shape, dtype=float)
     for row in data:
-        unit = [x for x in map(data_type.get, row) if x is not None]
+        unit = [x for x in row if x == x]
         if len(unit) > 1:
             for v1, v2 in permutations(unit, 2):
                 i, j = codebook[v1], codebook[v2]
@@ -132,7 +105,8 @@ def delta(coincidence_matrix, inverse_codebook, difference):
     for i in range(len(coincidence_matrix)):
         for j in range(i+1, len(coincidence_matrix)):
             v1, v2 = inverse_codebook[i], inverse_codebook[j]
-            delta.append(difference(v1, v2, inverse_codebook.values()))
+            values = list(inverse_codebook.values())
+            delta.append(difference.delta(v1, v2, values))
     return np.array(delta)
 
 def observation(coincidence_matrix, d):
@@ -179,10 +153,10 @@ def expectation(coincidence_matrix, d):
     expectation = np.divide(np.dot(n, d), coincidence_matrix.sum() - 1)
     return expectation
 
-def krippendorff(data, data_type):
+def krippendorff(data, difference):
     """Compute Krippendorff's α.
     
-    Given a matrix D (data) of annotations and a data type class with a
+    Given a matrix D (data) of annotations and a difference class with a
     difference function δ, compute the agreement score.  The data matrix D must
     be an N x M matrix where N is the number of subjects and M is the number of
     annotators.
@@ -211,24 +185,26 @@ def krippendorff(data, data_type):
            n(v) = the sum of the row v of the coincidence matrix
           n(v') = the sum of the column v' of the coincidence matrix
     """
-    if not type(data) == np.ndarray:
-        raise TypeError, 'expected a numpy array'
-    if len(data.shape) != 2:
-        raise ValueError, 'input must be 2-dimensional array'
+    if isinstance(data, pd.DataFrame):
+        data = data.as_matrix()
+    if not isinstance(data, np.ndarray):
+        raise TypeError('expected a pandas.DataFrame')
+    if data.ndim != 2:
+        raise ValueError('input must be 2-dimensional array')
     if data.shape < (1, 2):
         message = 'input must have dimensions at least 1 x 2 (rows x columns)'
-        raise ValueError, message
-    values = set(map(data_type.get, data.flatten())) - {None}
-    if not any(values):
-        message = 'input must include at least one value/label of type {}'
-        raise ValueError, message.format(data_type.type.__name__)
+        raise ValueError(message)
+    values = set(v for v in data.flatten() if v == v)
+    if not np.any(values):
+        message = 'input must include at least one value/label'
+        raise ValueError(message)
     if len(values) == 1:
-        print >> sys.stderr, 'Warning: all input values are identical!'
+        print('Warning: all input values are identical!', file=sys.stderr)
         return 1.0
     codebook = {v : i for (i, v) in enumerate(values)}
     inverse_codebook = dict(enumerate(values))
-    cm = get_coincidence_matrix(data, codebook, data_type)
-    d = delta(cm, inverse_codebook, data_type.difference)
+    cm = get_coincidence_matrix(data, codebook)
+    d = delta(cm, inverse_codebook, difference)
     observed = observation(cm, d)
     expected = expectation(cm, d)
     perfection = 1.0
@@ -237,30 +213,95 @@ def krippendorff(data, data_type):
 
 if __name__ == '__main__':
     import argparse
-    import os
-    DATA_TYPES = (Nominal, Ordinal, Interval)
-    DATA_TYPES_DICT = {dt().name().lower() : dt() for dt in DATA_TYPES}
     parser = argparse.ArgumentParser(
         description="Compute Krippendorff's alpha (α), a measure of \
-        interannotator agreement between two or more annotators."
+        interannotator agreement between two or more annotators.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
         '-i',
         '--input',
         default=sys.stdin,
         metavar='data.csv',
-        help='''a TSV data file (rows=subjects, columns=annotators)
-        (data is read from stdin if no path is given)'''
+        help="A data file (rows=subjects, columns=annotators)"
     )
     parser.add_argument(
         '-t',
-        '--type',
+        '--dtype',
+        default='object_',
+        choices=DATA_TYPES,
+        help='The type of data to load'
+    )
+    parser.add_argument(
+        '-f',
+        '--difference',
+        '--delta',
         default='nominal',
-        choices=DATA_TYPES_DICT.keys(),
-        help='how to treat the data labels (default="nominal")'
+        choices=[m for m in dir(Difference) if not m.startswith('_')],
+        help='The difference method (delta or δ) to use'
+    )
+    parser.add_argument(
+        '-d',
+        '--delimiter',
+        '--sep',
+        default="\t",
+        type=str,
+        help='''Delimiter to use. If sep is None, will try to automatically 
+        determine this. Separators longer than 1 character and different from 
+        ``'\s+'`` will be interpreted as regular expressions, will force use of 
+        the python parsing engine and will ignore quotes in the data. 
+        Regex example: ``'\r\t'``'''
+    )
+    parser.add_argument(
+        '-r',
+        '--header',
+        default=None,
+        nargs='+',
+        help='''Row number(s) to use as the column names, and the start of the 
+        data. Default behavior is as if set to 0 if no ``names`` passed, 
+        otherwise ``None``. Explicitly pass ``header=0`` to be able to replace 
+        existing names. The header can be a list of integers that specify row 
+        locations for a multi-index on the columns e.g. [0,1,3]. Intervening 
+        rows that are not specified will be skipped (e.g. 2 in this example is 
+        skipped). Note that this parameter ignores commented lines and empty 
+        lines if ``skip_blank_lines=True``, so header=0 denotes the first line 
+        of data rather than the first line of the file.'''
+    )
+    parser.add_argument(
+        '--na-values',
+        default=DEFAULT_NAN_VALUES,
+        nargs='+',
+        help='''Additional strings to recognize as NA/NaN.''',
+    )
+    parser.add_argument(
+        '--skip-blank-lines',
+        action='store_true',
+        help='''skip over blank lines rather than interpreting as NaN values'''
+    )
+    parser.add_argument(
+        '--usecols',
+        nargs='+',
+        metavar='COLUMN',
+        default=None,
+        help='''A subset of the columns. All elements in this list must either
+        be positional (i.e. integer indices into the columns) or strings that 
+        correspond to column names provided either by the user in `names` or
+        inferred from the document header row(s). For example, a valid `usecols`
+        parameter would be [0, 1, 2] or ['foo', 'bar', 'baz']. Using this 
+        parameter results in much faster parsing time and lower memory usage.'''
     )
     args = parser.parse_args()
-    data_type = DATA_TYPES_DICT[args.type.lower()]
-    data = data_type.load(args.input)
-    print 'δ: {} difference'.format(data_type.name())
-    print 'α: {}'.format(krippendorff(data, data_type))
+    dtype = attrgetter(args.dtype)(np)
+    nan_values = args.na_values
+    data = load(
+        args.input,
+        delimiter=args.delimiter,
+        header=args.header,
+        na_values=args.na_values,
+        skip_blank_lines=args.skip_blank_lines,
+        usecols=args.usecols,
+        dtype=args.dtype
+    )
+    difference = Difference(dtype, args.difference)
+    print('δ: {} difference'.format(args.difference))
+    print('α: {}'.format(krippendorff(data, difference)))
