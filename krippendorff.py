@@ -152,7 +152,7 @@ def expectation(coincidence_matrix, d):
     expectation = np.divide(np.dot(n, d), coincidence_matrix.sum() - 1)
     return expectation
 
-def krippendorff(data, difference):
+def alpha(data, difference):
     """Compute Krippendorff's α.
     
     Given a matrix D (data) of annotations and a difference class with a
@@ -308,4 +308,4 @@ if __name__ == '__main__':
     )
     difference = Difference(dtype, args.difference)
     print('δ: {} difference'.format(args.difference))
-    print('α: {}'.format(krippendorff(data, difference)))
+    print('α: {}'.format(alpha(data, difference)))
