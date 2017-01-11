@@ -106,7 +106,7 @@ import numpy as np
 import unittest, krippendorff
 
 class AlphaExample():
-    """A class to facilitate printing kappa examples."""
+    """A class to facilitate printing alpha examples."""
     def __init__(self, separator=': ', **kwargs):
         self.target = kwargs
         self.data = np.array(kwargs['data'])
