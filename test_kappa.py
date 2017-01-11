@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- mode: Python; coding: utf-8 -*-
 """Test suite for inter-annotator agreement kappa coefficients."""
 
@@ -115,7 +116,7 @@ class FleissTestCase(unittest.TestCase):
 
 if __name__ == '__main__':
     for example in EXAMPLES:
-        print example
+        print(example)
     # Test suite
     def suite():
         suite = unittest.TestSuite()

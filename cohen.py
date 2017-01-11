@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- mode: Python; coding: utf-8 -*-
 """Functions for computing Cohen's kappa (𝜅), a measure of inter-annotator 
 agreement between exactly two annotators."""
@@ -17,18 +18,18 @@ def kappa(data):
         Pr(a) = the percentage of observed agreement
         Pr(e) = the percentage of expected agreement."""
     if not issubclass(data.dtype.type, np.integer):
-        raise TypeError, 'expected integer type'
+        raise TypeError('expected integer type')
     if len(data.shape) != 2:
-        raise ValueError, 'input must be 2-dimensional array'
+        raise ValueError('input must be 2-dimensional array')
     if len(set(data.shape)) > 1:
         message = 'array dimensions must be N x N (they are {} x {})'
-        raise ValueError, message.format(*data.shape)
+        raise ValueError(message.format(*data.shape))
     if not np.isfinite(data).all():
-        raise ValueError, 'all data must be finite'
+        raise ValueError('all data must be finite')
     if (data < 0).any():
-        raise ValueError, 'all data must be non-negative'
+        raise ValueError('all data must be non-negative')
     if np.sum(data) <= 0:
-        raise ValueError, 'total data must sum to positive value'
+        raise ValueError('total data must sum to positive value')
     observation = observed(data)
     expectation = expected(data)
     perfection = 1.0

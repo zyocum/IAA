@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- mode: Python; coding: utf-8 -*-
 """Functions for computing Fleiss's kappa (𝜅), a measure of inter-annotator 
 agreement between several (more than 2) annotators."""
@@ -18,17 +19,17 @@ def kappa(data):
         P̅    = the percentage of observed agreement
         P̅(e) = the percentage of expected agreement."""
     if not issubclass(data.dtype.type, np.integer):
-        raise TypeError, 'expected integer type'
+        raise TypeError('expected integer type')
     if len(data.shape) != 2:
-        raise ValueError, 'input must be 2-dimensional array'
+        raise ValueError('input must be 2-dimensional array')
     if not np.isfinite(data).all():
-        raise ValueError, 'all data must be finite'
+        raise ValueError('all data must be finite')
     if (data < 0).any():
-        raise ValueError, 'all data must be non-negative'
+        raise ValueError('all data must be non-negative')
     if np.sum(data) <= 0:
-        raise ValueError, 'total data must sum to positive value'
+        raise ValueError('total data must sum to positive value')
     if not len(set(sum(data.T))) == 1:
-        raise ValueError, 'all subjects must have the same number of ratings'
+        raise ValueError('all subjects must have the same number of ratings')
     observation = observed(data)
     expectation = expected(data)
     perfection = 1.0
