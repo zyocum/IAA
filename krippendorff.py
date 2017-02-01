@@ -295,7 +295,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     dtype = attrgetter(args.dtype)(np)
     nan_values = args.na_values
-    header = 'infer'
     data = load(
         args.input,
         header=None if args.no_header else 'infer',
