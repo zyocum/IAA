@@ -47,6 +47,7 @@
                                       --------  
                                        26 - 1
     
+    α(ordinal) = 1 - ------------------------------------------
                                        1 * 2² + 2 * 1²
                       ------------------------------------------------ 
     α(interval) = 1 -  (4*7*1²+10*7*2²+5*7*3²+10*4*1²+5*4*2²+5*10*1²)   ≈ 0.811
@@ -55,7 +56,7 @@
 
 ./krippendorff.py -f nominal -n {1..6} --no-header < sample-data/stanford_sentiment_raw.tsv
 δ: nominal difference
-α: 0.1866346137317958
+α: 0.18663461373179746
 
 ./krippendorff.py -t float -f metric -n {1..6} --no-header < sample-data/stanford_sentiment_raw.tsv
 δ: metric difference
@@ -63,43 +64,54 @@
 
 ./krippendorff.py -t float -f ordinal -n {1..6} --no-header < sample-data/stanford_sentiment_raw.tsv
 δ: ordinal difference
-α: 0.5935814573071893
+α: 0.5756256865163973
+
+./krippendorff.py -t int -f ordinal -n {1..6} --no-header < sample-data/stanford_sentiment_raw.tsv
+Integer column has NA values in column 3
 
 ./krippendorff.py -t float -f interval -n {1..6} --no-header < sample-data/stanford_sentiment_raw.tsv
 δ: interval difference
 α: 0.5935814573071891
 
-./krippendorff.py -f nominal --no-header < sample-data/sentiment_nominal.tsv 
+./krippendorff.py -f nominal --no-header < sample-data/sentiment_nominal.tsv
 δ: nominal difference
 α: 0.3600164551295236
 
-./krippendorff.py -t float -f metric --no-header < sample-data/sentiment_numeric.tsv 
+./krippendorff.py -t float -f metric --no-header < sample-data/sentiment_numeric.tsv
 δ: metric difference
 α: 0.5275236928743301
 
-./krippendorff.py -t float -f ordinal --no-header < sample-data/sentiment_numeric.tsv 
+./krippendorff.py -t float -f ordinal --no-header < sample-data/sentiment_numeric.tsv
 δ: ordinal difference
-α: 0.6812989075802931
+α: 0.6921019808933906
 
-./krippendorff.py -t float -f interval --no-header < sample-data/sentiment_numeric.tsv 
+./krippendorff.py -t int -f ordinal --no-header < sample-data/sentiment_numeric.tsv
+δ: ordinal difference
+α: 0.6921019808933906
+
+./krippendorff.py -t float -f interval --no-header < sample-data/sentiment_numeric.tsv
 δ: interval difference
 α: 0.6812989075802931
 
-./krippendorff.py -f nominal < sample-data/test.txt 
+./krippendorff.py -f nominal < sample-data/test.txt
 δ: nominal difference
 α: 0.691358024691358
 
-./krippendorff.py -t float -f metric < sample-data/test.txt 
+./krippendorff.py -t float -f metric < sample-data/test.txt
 δ: metric difference
 α: 0.7518610421836228
 
-./krippendorff.py -t float -f ordinal < sample-data/test.txt 
+./krippendorff.py -t float -f ordinal < sample-data/test.txt
 δ: ordinal difference
-α: 0.8108448928121059
+α: 0.786132967207055
 
-./krippendorff.py -t float -f interval < sample-data/test.txt 
+./krippendorff.py -t int -f ordinal < sample-data/test.txt
+Integer column has NA values in column 0
+
+./krippendorff.py -t float -f interval < sample-data/test.txt
 δ: interval difference
 α: 0.8108448928121059
+
 """
 
 import numpy as np
@@ -217,16 +229,16 @@ EXAMPLES = [
     {
         'data': DATA,
         'args': (np.int, 'ordinal'),
-        'observed': 1.5,
-        'expected': 7.9299999999999997,
-        'alpha': 0.81084489281210592
+        'observed': 40.5,
+        'expected': 189.37,
+        'alpha': 0.78613296720705494
     },
     {
         'data': DATA,
         'args': (np.float, 'ordinal'),
-        'observed': 1.5,
-        'expected': 7.9299999999999997,
-        'alpha': 0.81084489281210592
+        'observed': 40.5,
+        'expected': 189.37,
+        'alpha': 0.78613296720705494
     },
     {
         'data': DATA,

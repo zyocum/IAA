@@ -30,7 +30,7 @@ DEFAULT_NAN_VALUES = [
     'nan'
 ]
 
-DATA_TYPES = 'complex', 'double', 'float', 'str', 'object_'
+DATA_TYPES = 'complex', 'double', 'float', 'int', 'str', 'object_'
 
 def load(datafile, **kwargs):
     """Load data from file via pandas.DataFrame and convert to numpy.array"""
@@ -55,18 +55,20 @@ class Difference():
     
     def metric(self, v1, v2, values, *args):
         """Return the metric difference between v1 and v2 between [0.0,1.0]
-    
+        
         The difference is normalized by the maximum value in the data set
         """
         return np.divide(abs(v1 - v2), abs(np.max(values) - np.min(values)))
     
     def ordinal(self, v1, v2, *args):
         """Return the ordinal difference between ranks v1 and v2"""
-        return np.sum(np.arange(v1, v2) - np.divide(v1 + v2, 2)) ** 2
+        # force ordinal range to span from lowest to highest value
+        v1, v2 = sorted((v1, v2))
+        return (np.sum(np.arange(v1, v2 + 1)) - np.divide(v1 + v2, 2)) ** 2
     
     def interval(self, v1, v2, values, *args):
         """Return the interval difference between v1 and v2
-    
+        
         The difference is normalized by the maximum value in the data set
         """
         return np.divide((v1 - v2) ** 2, np.max(values))
@@ -84,7 +86,7 @@ def get_coincidence_matrix(data, codebook):
     annotators assigned labels i and j to a subject."""
     labels = set(codebook.keys())
     shape = (len(labels), len(labels))
-    matrix = np.zeros(shape, dtype=float)
+    matrix = np.zeros(shape, dtype=data.dtype)
     for row in data:
         unit = [x for x in row if x == x]
         if len(unit) > 1:
@@ -245,11 +247,13 @@ if __name__ == '__main__':
         '--sep',
         default="\t",
         type=str,
-        help='''Delimiter to use. If sep is None, will try to automatically 
-        determine this. Separators longer than 1 character and different from 
-        ``'\s+'`` will be interpreted as regular expressions, will force use of 
-        the python parsing engine and will ignore quotes in the data. 
-        Regex example: ``'\r\t'``'''
+        help=(
+            'Delimiter to use. If sep is None, will try to automatically '
+            'determine this. Separators longer than 1 character and different '
+            "from ``'\s+'`` will be interpreted as regular expressions, will "
+            'force use of the python parsing engine and will ignore quotes in '
+            "the data. Regex example: ``'\r\t'``"
+        )
     )
     parser.add_argument(
         '--na-values',
@@ -257,17 +261,17 @@ if __name__ == '__main__':
         '--null-values',
         default=DEFAULT_NAN_VALUES,
         nargs='+',
-        help='''List of strings to recognize as NA/NaN/null.''',
+        help='List of strings to recognize as NA/NaN/null.',
     )
     parser.add_argument(
         '--skip-blank-lines',
         action='store_true',
-        help='''Skip over blank lines rather than interpreting as NaN values'''
+        help='Skip over blank lines rather than interpreting as NaN values'
     )
     parser.add_argument(
         '--no-header',
         action='store_true',
-        help='''Indicate that there is no header row in the data'''
+        help='Indicate that there is no header row in the data'
     )
     parser.add_argument(
         '-c',
@@ -276,35 +280,45 @@ if __name__ == '__main__':
         nargs='+',
         metavar='COLUMN',
         default=None,
-        help='''A subset of the columns. All elements in this list must either
-        be positional (i.e. integer indices into the columns) or strings that 
-        correspond to column names provided either by the user in `names` or
-        inferred from the document header row(s). For example, a valid `usecols`
-        parameter would be [0, 1, 2] or ['foo', 'bar', 'baz']. Using this 
-        parameter results in much faster parsing time and lower memory usage.'''
+        help=(
+            'A subset of the columns. All elements in this list must either '
+            'be positional (i.e. integer indices into the columns) or strings '
+            'that correspond to column names provided either by the user in '
+            '`names` or inferred from the document header row(s). For example, '
+            "a valid `usecols` parameter would be [0, 1, 2] or ['foo', 'bar', "
+            "'baz']. Using this parameter results in much faster parsing "
+            'time and lower memory usage.'
+        )
     )
     parser.add_argument(
         '-n',
         '--names',
         nargs='+',
         default=None,
-        help='''List of column names to use. If file contains no header row, then you
-        should explicitly use --no-header. Duplicates in this list are not
-        allowed unless mangle_dupe_cols=True, which is the default.'''
+        help=(
+            'List of column names to use. If file contains no header row, then '
+            'you should explicitly use --no-header. Duplicates in this list '
+            'are not allowed unless mangle_dupe_cols=True, which is the '
+            'default.'
+        )
     )
     args = parser.parse_args()
     dtype = attrgetter(args.dtype)(np)
     nan_values = args.na_values
-    data = load(
-        args.input,
-        header=None if args.no_header else 'infer',
-        names=args.names,
-        delimiter=args.delimiter,
-        na_values=args.na_values,
-        skip_blank_lines=args.skip_blank_lines,
-        usecols=args.usecols,
-        dtype=args.dtype
-    )
+    try:
+        data = load(
+            args.input,
+            header=None if args.no_header else 'infer',
+            names=args.names,
+            delimiter=args.delimiter,
+            na_values=args.na_values,
+            skip_blank_lines=args.skip_blank_lines,
+            usecols=args.usecols,
+            dtype=args.dtype
+        )
+    except ValueError as e:
+        print(e, file=sys.stderr)
+        sys.exit(1)
     difference = Difference(dtype, args.difference)
     print('δ: {} difference'.format(args.difference))
     print('α: {}'.format(alpha(data, difference)))
