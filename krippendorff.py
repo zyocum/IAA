@@ -30,7 +30,7 @@ DEFAULT_NAN_VALUES = [
     'nan'
 ]
 
-DATA_TYPES = 'complex', 'double', 'float', 'int', 'str', 'object_'
+DATA_TYPES = 'complex', 'double', 'float', 'int', 'str'
 
 def load(datafile, **kwargs):
     """Load data from file via pandas.DataFrame and convert to numpy.array"""
