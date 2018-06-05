@@ -229,7 +229,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-t',
         '--dtype',
-        default='object_',
+        default='str',
         choices=DATA_TYPES,
         help='The type of data to load'
     )
