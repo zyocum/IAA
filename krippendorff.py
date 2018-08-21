@@ -41,7 +41,7 @@ def load(datafile, **kwargs):
     if len(dtypes) != 1:
         message = 'input data must be uniformly typed (found {} types: {})'
         raise ValueError(message.format(len(dtypes), dtypes))
-    data = raw.as_matrix()
+    data = raw.values
     return data
 
 class Difference():
@@ -187,7 +187,7 @@ def alpha(data, difference):
           n(v') = the sum of the column v' of the coincidence matrix
     """
     if isinstance(data, pd.DataFrame):
-        data = data.as_matrix()
+        data = data.values
     if not isinstance(data, np.ndarray):
         raise TypeError('expected a pandas.DataFrame or np.ndarray')
     if data.ndim != 2:
