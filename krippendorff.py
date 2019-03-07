@@ -3,8 +3,10 @@
 """Functions for computing Krippendorff's alpha (α), a measure of 
 inter-annotator agreement between two or more annotators."""
 
+import csv
 import sys
-from itertools import permutations
+
+from itertools import permutations, combinations
 from operator import attrgetter, methodcaller
 
 import numpy as np
@@ -34,15 +36,14 @@ DATA_TYPES = 'complex', 'double', 'float', 'int', 'str'
 
 def load(datafile, **kwargs):
     """Load data from file via pandas.DataFrame and convert to numpy.array"""
-    raw = pd.read_table(datafile, **kwargs)
-    if raw.empty:
+    df = pd.read_csv(datafile, **kwargs)
+    if df.empty:
         raise ValueError('input data must be non-empty')
-    dtypes = set(raw.dtypes)
+    dtypes = set(df.dtypes)
     if len(dtypes) != 1:
         message = 'input data must be uniformly typed (found {} types: {})'
         raise ValueError(message.format(len(dtypes), dtypes))
-    data = raw.values
-    return data
+    return df
 
 class Difference():
     def __init__(self, dtype, method='nominal'):
@@ -82,11 +83,11 @@ def get_coincidence_matrix(data, codebook):
     
     Given an N x M matrix D (data) with N subjects and M annotators/coders,
     produce an L x L coincidence matrix C where L is the number of labels/values
-    assigned in the data such that cell C[i,j] is the frequency that the 
+    assigned in the data such that cell C[i,j] is the probability that the 
     annotators assigned labels i and j to a subject."""
     labels = set(codebook.keys())
     shape = (len(labels), len(labels))
-    matrix = np.zeros(shape, dtype=data.dtype)
+    matrix = np.zeros(shape, dtype=float)
     for row in data:
         unit = [x for x in row if x == x]
         if len(unit) > 1:
@@ -212,6 +213,31 @@ def alpha(data, difference):
     a = perfection - np.divide(observed, expected)
     return a
 
+def show_matrix(data, precision=3):
+    """For each pair of annotators (columns) in the data, compute the 
+    pair-wise alpha score and report the pair-wise matrix of scores.
+    
+    data: a pandas.dataframe with one column per annotator
+    precision: the numerical precision for the reported alpha scores
+    """
+    anns = data.columns.tolist()
+    index = {v: k for k, v in enumerate(anns)}
+    shape = (len(anns),) * 2
+    matrix = np.zeros(shape, dtype=float)
+    for pair in combinations(sorted(anns), 2):
+        ann1, ann2 = pair
+        i, j = index[ann1], index[ann2]
+        matrix[i,j] = alpha(data.iloc[:, [i,j]].values, difference)
+    writer = csv.writer(sys.stdout, delimiter='\t')
+    writer.writerow([' '] + anns[1:])
+    for ann, row in zip(anns[:-1], matrix):
+        row = [nformat(n, precision=precision) for n in row.tolist()]
+        writer.writerow([ann] + row[1:])
+
+def nformat(n, precision=3):
+    """String formatter for numbers to limit precision."""
+    return '{{:0.{}}}'.format(precision).format(n)
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(
@@ -229,7 +255,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-t',
         '--dtype',
-        default='str',
+        default='object',
         choices=DATA_TYPES,
         help='The type of data to load'
     )
@@ -302,6 +328,20 @@ if __name__ == '__main__':
             'default.'
         )
     )
+    parser.add_argument(
+        '-p',
+        '--pair-wise',
+        default=False,
+        action='store_true',
+        help='compute alpha scores for all pair-wise combinations of the columns'
+    )
+    parser.add_argument(
+        '-r',
+        '--precision',
+        default=3,
+        type=int,
+        help='numeric precision for alpha scores',
+    )
     args = parser.parse_args()
     dtype = attrgetter(args.dtype)(np)
     nan_values = args.na_values
@@ -320,5 +360,15 @@ if __name__ == '__main__':
         print(e, file=sys.stderr)
         sys.exit(1)
     difference = Difference(dtype, args.difference)
-    print('δ: {} difference'.format(args.difference))
-    print('α: {}'.format(alpha(data, difference)))
+    print('δ: {} difference'.format(args.difference), file=sys.stderr)
+    if args.pair_wise:
+        show_matrix(data, precision=args.precision)
+    else:
+        print(
+            'α: {}'.format(
+                nformat(
+                    alpha(data.values, difference),
+                    precision=args.precision
+                    )
+            )
+        )
