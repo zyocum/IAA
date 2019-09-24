@@ -7,7 +7,7 @@ import csv
 import sys
 
 from itertools import permutations, combinations
-from operator import attrgetter, methodcaller
+from operator import itemgetter, attrgetter, methodcaller
 
 import numpy as np
 import pandas as pd
@@ -82,11 +82,12 @@ def get_coincidence_matrix(data, codebook):
     """Return a coincidence matrix
     
     Given an N x M matrix D (data) with N subjects and M annotators/coders,
-    produce an L x L coincidence matrix C where L is the number of labels/values
-    assigned in the data such that cell C[i,j] is the probability that the 
-    annotators assigned labels i and j to a subject."""
-    labels = set(codebook.keys())
-    shape = (len(labels), len(labels))
+    and a codebook mapping data values to indices, produce an L x L coincidence 
+    matrix C where L is the number of labels/values assigned in the data such 
+    that cell C[i,j] is the probability that the annotators assigned labels i 
+    and j to a subject.
+    """
+    shape = len(codebook), len(codebook)
     matrix = np.zeros(shape, dtype=float)
     for row in data:
         unit = [x for x in row if x == x]
@@ -99,15 +100,16 @@ def get_coincidence_matrix(data, codebook):
 def delta(coincidence_matrix, inverse_codebook, difference):
     """Compute a delta vector.
     
-    Given a coincidence matrix, an inverse codebook, and a difference function,
-    compute a delta vector that can be used to compute observed and expected
-    agreement.  The inverse codebook allows for looking up values from the
-    row/column indices of the coincidence matrix."""
+    Given a coincidence matrix, an inverse codebook, and a difference class 
+    with a difference function δ, compute a delta vector that can be used to 
+    compute observed and expected agreement.  The inverse codebook allows for 
+    looking up values from the row/column indices of the coincidence matrix.
+    """
+    values = list(inverse_codebook.values())
     delta = []
     for i in range(len(coincidence_matrix)):
         for j in range(i+1, len(coincidence_matrix)):
             v1, v2 = inverse_codebook[i], inverse_codebook[j]
-            values = list(inverse_codebook.values())
             delta.append(difference._delta(v1, v2, values))
     return np.array(delta)
 
@@ -119,7 +121,7 @@ def observation(coincidence_matrix, d):
     Where...
               V = the size of the set of values/labels that occur in the data
               v = a row index of the coincidence matrix
-             v' = a column indix of the coincidence matrix
+             v' = a column index of the coincidence matrix
         o(v,v') = the frequency in cell C[v,v'] in the coincidence matrix C
         δ(v,v') = the difference function applied to the values of v and v'
     """
@@ -140,7 +142,7 @@ def expectation(coincidence_matrix, d):
     Where...
               V = the size of the set of values/labels that occur in the data
               v = a row index of the coincidence matrix
-             v' = a column indix of the coincidence matrix
+             v' = a column index of the coincidence matrix
            n(v) = the sum of the row v of the coincidence matrix
           n(v') = the sum of the column v' of the coincidence matrix
         δ(v,v') = the difference function applied to the values of v and v'
@@ -213,11 +215,12 @@ def alpha(data, difference):
     a = perfection - np.divide(observed, expected)
     return a
 
-def show_matrix(data, precision=3):
+def show_matrix(data, difference, precision=3):
     """For each pair of annotators (columns) in the data, compute the 
     pair-wise alpha score and report the pair-wise matrix of scores.
     
     data: a pandas.dataframe with one column per annotator
+    difference: a Difference with a ._delta function
     precision: the numerical precision for the reported alpha scores
     """
     anns = data.columns.tolist()
@@ -234,6 +237,25 @@ def show_matrix(data, precision=3):
         row = [nformat(n, precision=precision) for n in row.tolist()]
         writer.writerow([ann] + row[1:])
 
+def show_pairs(data, difference, precision=3):
+    """For each pair of annotators (columns) in the data, compute the 
+    pair-wise alpha score and report a list of the pairs ranked by their
+    score in descending order.
+    
+    data: a pandas.dataframe with one column per annotator
+    difference: a Difference with a ._delta function
+    precision: the numerical precision for the reported alpha scores
+    """
+    anns = data.columns.tolist()
+    index = {v: k for k, v in enumerate(anns)}
+    writer = csv.writer(sys.stdout, delimiter='\t')
+    rows = []
+    for ann1, ann2 in combinations(sorted(anns), 2):
+        i, j = index[ann1], index[ann2]
+        a = alpha(data.iloc[:, [i,j]].values, difference)
+        rows.append([ann1, ann2, nformat(a, precision=precision)])
+    writer.writerows(sorted(rows, key=itemgetter(2), reverse=True))
+
 def nformat(n, precision=3):
     """String formatter for numbers to limit precision."""
     return '{{:0.{}}}'.format(precision).format(n)
@@ -241,8 +263,10 @@ def nformat(n, precision=3):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(
-        description="Compute Krippendorff's alpha (α), a measure of \
-        interannotator agreement between two or more annotators.",
+        description=(
+            "Compute Krippendorff's alpha (α), a measure of "
+            "interannotator agreement between two or more annotators."
+        ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
@@ -333,7 +357,20 @@ if __name__ == '__main__':
         '--pair-wise',
         default=False,
         action='store_true',
-        help='compute alpha scores for all pair-wise combinations of the columns'
+        help=(
+            'compute alpha scores for all pair-wise combinations of the '
+            'columns and show the pair-wise 2D matrix'
+        )
+    )
+    parser.add_argument(
+        '-l',
+        '--pair-list',
+        default=False,
+        action='store_true',
+        help=(
+            'compute alpha scores for all pair-wise combinations of the '
+            'columns and show the list of pairs ranked by alpha score'
+        )
     )
     parser.add_argument(
         '-r',
@@ -362,13 +399,14 @@ if __name__ == '__main__':
     difference = Difference(dtype, args.difference)
     print('δ: {} difference'.format(args.difference), file=sys.stderr)
     if args.pair_wise:
-        show_matrix(data, precision=args.precision)
-    else:
-        print(
-            'α: {}'.format(
-                nformat(
-                    alpha(data.values, difference),
-                    precision=args.precision
-                    )
+        show_matrix(data, difference, precision=args.precision)
+    if args.pair_list:
+        show_pairs(data, difference, precision=args.precision)
+    print(
+        'α: {}'.format(
+            nformat(
+                alpha(data.values, difference),
+                precision=args.precision
             )
         )
+    )
