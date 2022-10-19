@@ -6,13 +6,13 @@ inter-annotator agreement between two or more annotators."""
 import csv
 import sys
 
-from itertools import permutations, combinations
-from operator import itemgetter, attrgetter, methodcaller
+from itertools import combinations
+from itertools import permutations
+from operator import itemgetter
+from operator import methodcaller
 
 import numpy as np
 import pandas as pd
-
-NUMBERS = int, float, complex
 
 DEFAULT_NAN_VALUES = [
     '',
@@ -32,7 +32,13 @@ DEFAULT_NAN_VALUES = [
     'nan'
 ]
 
-DATA_TYPES = 'complex', 'double', 'float', 'int', 'str'
+DATA_TYPES = {
+    'complex': complex,
+    'float': float,
+    'int': int,
+    'str': str,
+    'object': object
+}
 
 def load(datafile, **kwargs):
     """Load data from file via pandas.DataFrame and convert to numpy.array"""
@@ -380,7 +386,7 @@ if __name__ == '__main__':
         help='numeric precision for alpha scores',
     )
     args = parser.parse_args()
-    dtype = attrgetter(args.dtype)(np)
+    dtype = DATA_TYPES[args.dtype]
     nan_values = args.na_values
     try:
         data = load(
